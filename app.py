@@ -6,7 +6,7 @@ from skimage.metrics import structural_similarity as ssim
 from skimage.filters import threshold_sauvola, threshold_niblack
 
 # Page Setup
-st.set_page_config(page_title=" Palm Leaf Manuscript Master", layout="wide")
+st.set_page_config(page_title="Manuscript Master Pro", layout="wide")
 
 def calculate_metrics(original_gray, processed_final):
     mse = np.mean((original_gray.astype(np.float32) - processed_final.astype(np.float32)) ** 2)
@@ -22,8 +22,9 @@ uploaded_file = st.sidebar.file_uploader("Upload Image", type=["jpg", "jpeg", "p
 st.sidebar.markdown("---")
 focus_mode = st.sidebar.checkbox("🔍 Focus Mode (Enlarge Output)", value=False)
 
-# NEW: Manual Adjustments
+# NEW: Auto-Enhance and Manual Adjustments
 st.sidebar.subheader("Adjustments")
+auto_mode = st.sidebar.button("✨ Auto-Enhance (Histogram Equalize)")
 brightness = st.sidebar.slider("Brightness", -100, 100, 0)
 contrast = st.sidebar.slider("Contrast", -100, 100, 0)
 
@@ -45,15 +46,22 @@ edge_val = st.sidebar.slider("Canny Threshold", 10, 250, 100)
 st.title("📜 Manuscript Master App")
 
 if uploaded_file is not None:
-    # Load and Pre-process
+    # Load Image
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img_bgr = cv2.imdecode(file_bytes, 1)
     
-    # Apply Brightness/Contrast
-    # Formula: f(x) = alpha * f(x) + beta
-    alpha = (contrast + 127) / 127  # Contrast control (1.0 = normal)
-    beta = brightness               # Brightness control
-    adjusted = cv2.convertScaleAbs(img_bgr, alpha=alpha, beta=beta)
+    # Pre-processing Logic
+    if auto_mode:
+        # Convert to YUV to equalize brightness (Y channel) without messing up colors
+        img_yuv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2YUV)
+        img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
+        adjusted = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+        st.sidebar.success("Auto-Enhance Applied!")
+    else:
+        # Apply Manual Brightness/Contrast
+        alpha = (contrast + 127) / 127
+        beta = brightness
+        adjusted = cv2.convertScaleAbs(img_bgr, alpha=alpha, beta=beta)
     
     gray = cv2.cvtColor(adjusted, cv2.COLOR_BGR2GRAY)
 
@@ -99,8 +107,8 @@ if uploaded_file is not None:
     else:
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("### 🖼️ Original")
-            st.image(img_bgr, channels="BGR", use_container_width=True)
+            st.markdown("### 🖼️ Adjusted Original")
+            st.image(adjusted, channels="BGR", use_container_width=True)
         with col2:
             st.markdown("### 🎞️ Filtered")
             st.image(filtered, use_container_width=True)
@@ -116,11 +124,10 @@ if uploaded_file is not None:
     m_col2.metric("PSNR", f"{psnr:,.1f} dB")
     m_col3.metric("SSIM", f"{ssim_val:,.3f}")
 
-    # Download
+    # Export
     res, img_encoded = cv2.imencode(".png", final)
     st.sidebar.markdown("---")
     st.sidebar.download_button("💾 Download Final Image", data=img_encoded.tobytes(), file_name="processed.png", mime="image/png")
 
 else:
     st.info("Upload a file in the sidebar to get started!")
-
