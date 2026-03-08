@@ -6,7 +6,7 @@ from skimage.metrics import structural_similarity as ssim
 from skimage.filters import threshold_sauvola, threshold_niblack
 
 # Page Setup
-st.set_page_config(page_title="Manuscript Master Pro", layout="wide")
+st.set_page_config(page_title=" Palm Leaf Manuscript Master", layout="wide")
 
 def calculate_metrics(original_gray, processed_final):
     mse = np.mean((original_gray.astype(np.float32) - processed_final.astype(np.float32)) ** 2)
@@ -123,3 +123,4 @@ if uploaded_file is not None:
 
 else:
     st.info("Upload a file in the sidebar to get started!")
+
