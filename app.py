@@ -5,6 +5,7 @@ from PIL import Image
 from skimage.metrics import structural_similarity as ssim
 from skimage.filters import threshold_sauvola, threshold_niblack
 
+# Page Setup
 st.set_page_config(page_title="Manuscript Master Pro", layout="wide")
 
 def calculate_metrics(original_gray, processed_final):
@@ -13,30 +14,50 @@ def calculate_metrics(original_gray, processed_final):
     score, _ = ssim(original_gray, processed_final, full=True)
     return mse, psnr, score
 
-# --- Sidebar Controls ---
-st.sidebar.header("📂 Data Input")
-uploaded_file = st.sidebar.file_uploader("Upload Manuscript Image", type=["jpg", "jpeg", "png", "tif", "bmp"])
+# --- Sidebar ---
+st.sidebar.title("🎮 Control Panel")
+uploaded_file = st.sidebar.file_uploader("Upload Image", type=["jpg", "jpeg", "png", "tif", "bmp"])
 
-# Focus Mode Toggle
+# View Toggle
 st.sidebar.markdown("---")
 focus_mode = st.sidebar.checkbox("🔍 Focus Mode (Enlarge Output)", value=False)
 
-st.sidebar.header("🛠️ Parameters")
-filter_type = st.sidebar.selectbox("Filter Strategy", ("Gaussian Blur", "Non-Local Means", "Median Filter", "Bilateral"))
-filter_strength = st.sidebar.slider("Filter Strength", 1, 25, 5)
-use_clahe = st.sidebar.checkbox("Enable CLAHE", value=True)
-thresh_type = st.sidebar.selectbox("Binarization", ("Hybrid (Sauvola+Otsu)", "Otsu (Global)", "Sauvola (Local)", "Niblack (Local)", "Adaptive Gaussian"))
+# NEW: Manual Adjustments
+st.sidebar.subheader("Adjustments")
+brightness = st.sidebar.slider("Brightness", -100, 100, 0)
+contrast = st.sidebar.slider("Contrast", -100, 100, 0)
+
+# 1. Noise Filter
+st.sidebar.subheader("1. Noise Filter")
+filter_type = st.sidebar.selectbox("Strategy", ("Gaussian Blur", "Non-Local Means", "Median Filter", "Bilateral"))
+filter_strength = st.sidebar.slider("Strength", 1, 25, 5)
+use_clahe = st.sidebar.checkbox("Enable CLAHE Enhancement", value=True)
+
+# 2. Binarization
+st.sidebar.subheader("2. Binarization")
+thresh_type = st.sidebar.selectbox("Strategy", ("Hybrid (Sauvola+Otsu)", "Otsu (Global)", "Sauvola (Local)", "Niblack (Local)", "Adaptive Gaussian"))
 window_size = st.sidebar.slider("Window Size", 3, 101, 25, step=2)
-edge_val = st.sidebar.slider("Canny Sensitivity", 10, 250, 100)
+
+# 3. Canny Sensitivity
+st.sidebar.subheader("3. Edge Sensitivity")
+edge_val = st.sidebar.slider("Canny Threshold", 10, 250, 100)
 
 st.title("📜 Manuscript Master App")
 
 if uploaded_file is not None:
-    # --- Image Processing Logic ---
+    # Load and Pre-process
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img_bgr = cv2.imdecode(file_bytes, 1)
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    
+    # Apply Brightness/Contrast
+    # Formula: f(x) = alpha * f(x) + beta
+    alpha = (contrast + 127) / 127  # Contrast control (1.0 = normal)
+    beta = brightness               # Brightness control
+    adjusted = cv2.convertScaleAbs(img_bgr, alpha=alpha, beta=beta)
+    
+    gray = cv2.cvtColor(adjusted, cv2.COLOR_BGR2GRAY)
 
+    # Stage 1: Filtering
     k = filter_strength if filter_strength % 2 != 0 else filter_strength + 1
     if filter_type == "Gaussian Blur":
         filtered = cv2.GaussianBlur(gray, (k, k), 0)
@@ -51,6 +72,7 @@ if uploaded_file is not None:
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
         filtered = clahe.apply(filtered)
 
+    # Stage 2: Binarization
     w = window_size if window_size % 2 != 0 else window_size + 1
     if thresh_type == "Otsu (Global)":
         _, binary = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -65,40 +87,39 @@ if uploaded_file is not None:
         local_t = threshold_sauvola(filtered, window_size=w)
         binary = np.where((filtered < local_t) & (filtered < otsu_val), 0, 255).astype(np.uint8)
 
+    # Stage 3: Edge Validation
     edges = cv2.Canny(filtered, edge_val/2, edge_val)
     mask = cv2.dilate(edges, np.ones((2,2), np.uint8))
     final = np.where((binary == 0) & (mask == 0), 255, binary).astype(np.uint8)
 
-    # --- ENLARGE LOGIC ---
+    # --- Display ---
     if focus_mode:
-        st.warning("⚠️ Focus Mode Active: Stage 1 and 2 are hidden.")
-        st.subheader("🎯 FINAL BINARY (ENLARGED)")
-        # Display with massive width
+        st.subheader("🎯 Focus View: Final Output")
         st.image(final, use_container_width=True)
     else:
-        # Standard Multi-Row View
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("### 🖼️ Stage 1: Original")
+            st.markdown("### 🖼️ Original")
             st.image(img_bgr, channels="BGR", use_container_width=True)
         with col2:
-            st.markdown("### 🎞️ Stage 2: Filtered")
+            st.markdown("### 🎞️ Filtered")
             st.image(filtered, use_container_width=True)
-
+        
         st.markdown("---")
-        st.markdown("### 🎯 Stage 3: Final Binary")
+        st.markdown("### 🎯 Final Result")
         st.image(final, use_container_width=True)
 
-    # Metrics Panel
+    # Metrics
     mse, psnr, ssim_val = calculate_metrics(gray, final)
     m_col1, m_col2, m_col3 = st.columns(3)
     m_col1.metric("MSE", f"{mse:,.1f}")
     m_col2.metric("PSNR", f"{psnr:,.1f} dB")
     m_col3.metric("SSIM", f"{ssim_val:,.3f}")
 
-    # Export
+    # Download
     res, img_encoded = cv2.imencode(".png", final)
-    st.sidebar.download_button("💾 Download Result", data=img_encoded.tobytes(), file_name="output.png", mime="image/png")
+    st.sidebar.markdown("---")
+    st.sidebar.download_button("💾 Download Final Image", data=img_encoded.tobytes(), file_name="processed.png", mime="image/png")
 
 else:
-    st.info("Please upload an image.")
+    st.info("Upload a file in the sidebar to get started!")
