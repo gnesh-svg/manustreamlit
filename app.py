@@ -102,7 +102,7 @@ if uploaded_file is not None:
             st.markdown("### 🖼️ Original")
             st.image(img_bgr, channels="BGR", use_container_width=True)
         with col2:
-            st.markdown("### 🎞️ Filtered")
+            st.markdown("### 🎞️ GrayScaleImage")
             st.image(filtered, use_container_width=True)
         
         st.markdown("---")
@@ -123,3 +123,4 @@ if uploaded_file is not None:
 
 else:
     st.info("Upload a file in the sidebar to get started!")
+
