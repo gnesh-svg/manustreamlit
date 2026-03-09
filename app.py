@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+Manuscript Master App
+Created on March 2026
+Author/Owner: Ganesh
+
+This software was developed with the assistance of Gemini 3.0.
+Licensed under the MIT License.
+"""
+
 import streamlit as st
 import cv2
 import numpy as np
@@ -123,4 +133,5 @@ if uploaded_file is not None:
 
 else:
     st.info("Upload a file in the sidebar to get started!")
+
 
