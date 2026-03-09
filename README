@@ -1,0 +1,22 @@
+Manuscript Master App
+A Python-based GUI application for the enhancement and binarization of historical manuscripts.
+
+Technical Overview
+This tool uses advanced image processing pipelines to clean scanned documents, including:
+
+Noise Reduction: Gaussian, Median, and Non-Local Means filtering.
+
+Enhancement: Contrast Limited Adaptive Histogram Equalization (CLAHE).
+
+Binarization: Hybrid Sauvola-Otsu and Adaptive Gaussian thresholding.
+
+Validation: Canny Edge detection masking for stroke preservation.
+
+Attribution & Rights
+Core Logic: Generated and refined with assistance from Gemini 3.0.
+
+Libraries: * OpenCV (Apache License 2.0)
+
+Scikit-Image (BSD License)
+
+Pillow (HPND License)
